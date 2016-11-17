@@ -11,3 +11,4 @@ title: "Home"
 
 # Analyses
 
+- [Initial assessment of scaling of mixIP with n,k](mixIP-scaling-nk.html)
