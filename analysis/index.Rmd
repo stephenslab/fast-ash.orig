@@ -11,4 +11,5 @@ title: "Home"
 
 # Analyses
 
+- [Breaking ash into its component parts](ash_stages.html)
 - [Initial assessment of scaling of mixIP with n,k](mixIP-scaling-nk.html)

@@ -9,9 +9,11 @@
 <meta name="generator" content="pandoc" />
 
 
+<meta name="author" content="Matthew Stephens" />
 
+<meta name="date" content="2016-11-17" />
 
-<title>Home</title>
+<title>Breaking the computation time of ash into stages</title>
 
 <script src="libs/jquery-1.11.3/jquery.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -102,6 +104,7 @@ h6 {
 }
 </style>
 
+<link rel="stylesheet" href="layout/floating-toc.css" type="text/css" />
 
 </head>
 
@@ -172,24 +175,113 @@ $(document).ready(function () {
 
 
 
-<h1 class="title toc-ignore">Home</h1>
+<h1 class="title toc-ignore">Breaking the computation time of ash into stages</h1>
+<h4 class="author"><em>Matthew Stephens</em></h4>
+<h4 class="date"><em>2016-11-17</em></h4>
 
 </div>
 
 <div id="TOC">
 <ul>
-<li><a href="#analyses">Analyses</a></li>
+<li><a href="#outline">Outline</a></li>
+<li><a href="#same-for-unimix">Same for unimix:</a><ul>
+<li><a href="#session-information">Session information</a></li>
+</ul></li>
 </ul>
 </div>
 
 <p><strong>Last updated:</strong> 2016-11-17</p>
-<p><strong>Code version:</strong> 1065f9c54a8264ab7ec6156bc91642cf8d07fd68</p>
-<div id="analyses" class="section level1">
-<h1>Analyses</h1>
-<ul>
-<li><a href="ash_stages.html">Breaking ash into its component parts</a></li>
-<li><a href="mixIP-scaling-nk.html">Initial assessment of scaling of mixIP with n,k</a></li>
-</ul>
+<p><strong>Code version:</strong> 8d1714b9c68be58f60e08acc1e46cc0a0989a6d2</p>
+<div id="outline" class="section level2">
+<h2>Outline</h2>
+<p>Ash has essentially three stages: - compute the likelihood matrix (whose j,k element is p(betahat_j| component k)) - estimate g - compute posterior quantities like E(beta_j | betahat_j, ghat)</p>
+<p>Here we start to assess how long each step takes</p>
+<p>First for normalmix:</p>
+<pre class="r"><code>library(ashr)
+set.seed(100)
+z = rnorm(100000,0,2)
+
+total_time= system.time(res &lt;- ash(z,1,mixcompdist=&quot;normal&quot;))
+fitted_g  = get_fitted_g(res)
+data = res$data
+
+time_no_output= system.time(ash(z,1,mixcompdist=&quot;normal&quot;,outputlevel=0))
+time_min_output= system.time(ash(z,1,mixcompdist=&quot;normal&quot;,outputlevel=1))
+time_no_output_no_fit= system.time(ash(z,1,mixcompdist=&quot;normal&quot;,outputlevel=0,fixg=TRUE,g=fitted_g))
+
+time_matrix = system.time(llik &lt;- t(ashr:::log_comp_dens_conv.normalmix(fitted_g,data)))
+
+total_time</code></pre>
+<pre><code>   user  system elapsed 
+ 30.989   2.712  19.016 </code></pre>
+<pre class="r"><code>time_matrix</code></pre>
+<pre><code>   user  system elapsed 
+  0.105   0.036   0.142 </code></pre>
+<pre class="r"><code>time_no_output</code></pre>
+<pre><code>   user  system elapsed 
+ 19.914   1.605   7.499 </code></pre>
+<pre class="r"><code>time_min_output</code></pre>
+<pre><code>   user  system elapsed 
+ 24.954   1.402   9.799 </code></pre>
+<pre class="r"><code>time_no_output_no_fit</code></pre>
+<pre><code>   user  system elapsed 
+  0.001   0.000   0.002 </code></pre>
+<p>Conclusion: the initial matrix calculation is relatively negligible. The full output takes about half the elapsed time, and a quarter of the user time.</p>
+</div>
+<div id="same-for-unimix" class="section level1">
+<h1>Same for unimix:</h1>
+<pre class="r"><code>total_time= system.time(res &lt;- ash(z,1,mixcompdist=&quot;uniform&quot;))
+fitted_g  = get_fitted_g(res)
+data = res$data
+
+time_no_output= system.time(ash(z,1,mixcompdist=&quot;uniform&quot;,outputlevel=0))
+time_min_output= system.time(ash(z,1,mixcompdist=&quot;uniform&quot;,outputlevel=1))
+
+time_no_output_no_fit= system.time(ash(z,1,mixcompdist=&quot;uniform&quot;,outputlevel=0,fixg=TRUE,g=fitted_g))
+time_matrix = system.time(llik &lt;- t(ashr:::log_comp_dens_conv.unimix(fitted_g,data)))
+
+total_time</code></pre>
+<pre><code>   user  system elapsed 
+ 37.174   3.697  27.225 </code></pre>
+<pre class="r"><code>time_matrix</code></pre>
+<pre><code>   user  system elapsed 
+  0.350   0.069   0.420 </code></pre>
+<pre class="r"><code>time_no_output</code></pre>
+<pre><code>   user  system elapsed 
+ 17.833   1.077   6.354 </code></pre>
+<pre class="r"><code>time_min_output</code></pre>
+<pre><code>   user  system elapsed 
+ 26.464   2.452  15.965 </code></pre>
+<pre class="r"><code>time_no_output_no_fit</code></pre>
+<pre><code>   user  system elapsed 
+  0.002   0.000   0.003 </code></pre>
+<p>Now the full output takes more than half the elapsed time, and about half the user time.</p>
+<div id="session-information" class="section level2">
+<h2>Session information</h2>
+<pre><code>R version 3.3.1 (2016-06-21)
+Platform: x86_64-apple-darwin13.4.0 (64-bit)
+Running under: OS X 10.11.5 (El Capitan)
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] ashr_2.0.4 knitr_1.14
+
+loaded via a namespace (and not attached):
+ [1] Rcpp_0.12.7       magrittr_1.5      REBayes_0.73     
+ [4] MASS_7.3-45       doParallel_1.0.10 pscl_1.4.9       
+ [7] SQUAREM_2016.8-2  lattice_0.20-34   foreach_1.4.3    
+[10] stringr_1.1.0     tools_3.3.1       parallel_3.3.1   
+[13] grid_3.3.1        htmltools_0.3.5   iterators_1.0.8  
+[16] yaml_2.1.13       assertthat_0.1    digest_0.6.10    
+[19] tibble_1.2        Matrix_1.2-7.1    formatR_1.4      
+[22] codetools_0.2-15  evaluate_0.10     rmarkdown_1.1    
+[25] stringi_1.1.2     Rmosek_7.1.2      truncnorm_1.0-7  </code></pre>
+</div>
 </div>
 
 
