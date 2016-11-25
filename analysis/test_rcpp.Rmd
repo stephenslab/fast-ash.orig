@@ -19,16 +19,13 @@ source("layout/chunk-options.R")
 ## Overview
 
 The file `fast_ash.cpp` contains some rcpp functions to compare.
-The `fixptfn` is the regular EM update currently in `ashr`.
-Then `wsum` is one based on a multi-resolution method that bifurcates the data
-and merges rows that yield the same results within some specified tolerance.
-By comparison `wsum_naive` is a simple implementation that loops through the rows
-and sums the responsibilities... much slower than the fix point function which exploits
-vector-matrix multiplication to avoid the loop...
 
-The comparison `wsum_naive` vs `wsum_naive_transpose` was just to check
-if it is faster to loop through rows vs columns. It seems to make no difference.
-(Howver, passing the matrix of likelihoods as a const & seems to make a small difference.)
+The function `wsum_direct` simply sums the responsibilities (posterior class probabilities) directly. This is close to the approach currently used in ash.
+
+In contrast the `wsum` method is based on a multi-resolution method that bifurcates the data
+and merges rows that yield the same results within some specified tolerance.
+
+
 ```{r, cache=TRUE}
 library(ashr)
 set.seed(100)
@@ -53,35 +50,28 @@ pi = rep(1, ncomp(fitted_g))
 
 ```
 
+Here we just check the approximate methods produce similar answers to the direct method.
 ```{r}
 Rcpp::sourceCpp('fast_ash.cpp')
-fixptfn(pi,lik,rep(1,17))
-wsum_current(pi,lik,0,nsamp-1)
-wsum_current_opt(pi,lik,0,nsamp-1)
+wsum_direct(pi,lik,0,nsamp-1)
 wsum(pi,lik,0,nsamp-1,0,0,tol=1e-3)
 wsum(pi,lik,0,nsamp-1,0,0,tol=1e-5)
 
-wsum_current_opt(pi,lik,11,2000)
+wsum_direct(pi,lik,11,2000) # just check the functions are working ok for subsets that are not the whole data 
 wsum(pi,lik,11,2000,0,0,tol=1e-3)
 wsum(pi,lik,11,2000,0,0,tol=1e-5)
 
 ```
-
+Here we compare the compute times. If the tolerance is too tight then
+you get slower than simply directly summing. However, a weaker tolerance gives a substantial gain.
 ```{r}
 tlik = t(lik)
-system.time(fixptfn(pi,lik,rep(1,17)))
-system.time(wsum_current(pi,lik,0,nsamp-1))
-system.time(wsum_current_opt(pi,lik,0,nsamp-1))
+system.time(wsum_direct(pi,lik,0,nsamp-1))
 system.time(wsum(pi,lik,0,nsamp-1,0,0,tol=1e-3))
 system.time(wsum(pi,lik,0,nsamp-1,0,0,tol=1e-5))
 
-system.time(wsum_naive_transposed(pi,tlik,1,nsamp-1))
-system.time(wsum_naive(pi,lik,1,nsamp-1))
-
 ```
 
-Thoughts: maybe it would be worth storing the weights and responsibilities to
-be summed in a matrix, and using matrix multiplication?
 
 ## Session information
 

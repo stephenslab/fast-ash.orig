@@ -44,7 +44,7 @@ NumericMatrix mmult( NumericMatrix m , NumericVector v , bool byrow = true ){
 
 // this multiplies columns of matrix m, between rows a and b, by vector v
 // [[Rcpp::export]]
-NumericMatrix my_mmult( NumericMatrix m , NumericVector v , int a, int b){
+NumericMatrix my_mmult(const NumericMatrix & m ,const NumericVector & v , int a, int b){
 
   if( ! (m.ncol() == v.size()) ) stop("Non-conformable arrays") ;
     
