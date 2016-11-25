@@ -41,17 +41,33 @@ res <- ash(z,1,mixcompdist="normal",outputlevel=4)
 lik = res$fit_details$matrix_lik
 fitted_g = get_fitted_g(res)
 
-# set up the initial value of pi that we typically use in ash
-normalize=function(x){x/sum(x)}
-pi = rep(1/nsamp, ncomp(fitted_g))
-pi[1]=1
-pi = normalize(pi)
+# set up the initial value of pi as uniform
+pi = rep(1, ncomp(fitted_g))
+
+# This is closer to the usual initial value we use in ash
+# normalize=function(x){x/sum(x)}
+#pi = rep(1/nsamp, ncomp(fitted_g))
+#pi[1]=1
+#pi = normalize(pi)
 
 
 ```
 
 ```{r}
 Rcpp::sourceCpp('fast_ash.cpp')
+fixptfn(pi,lik,rep(1,17))
+wsum_current(pi,lik,0,nsamp-1)
+wsum_current_opt(pi,lik,0,nsamp-1)
+wsum(pi,lik,0,nsamp-1,0,0,tol=1e-3)
+wsum(pi,lik,0,nsamp-1,0,0,tol=1e-5)
+
+wsum_current_opt(pi,lik,11,2000)
+wsum(pi,lik,11,2000,0,0,tol=1e-3)
+wsum(pi,lik,11,2000,0,0,tol=1e-5)
+
+```
+
+```{r}
 tlik = t(lik)
 system.time(fixptfn(pi,lik,rep(1,17)))
 system.time(wsum_current(pi,lik,0,nsamp-1))

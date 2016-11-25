@@ -189,7 +189,7 @@ $(document).ready(function () {
 </div>
 
 <p><strong>Last updated:</strong> 2016-11-24</p>
-<p><strong>Code version:</strong> 0b817002b9fdaa40593f15f828ea52618b815945</p>
+<p><strong>Code version:</strong> 08019b9cb3faf9071ba8ee512d98fb393ce49fdd</p>
 <div id="overview" class="section level2">
 <h2>Overview</h2>
 <p>The file <code>fast_ash.cpp</code> contains some rcpp functions to compare. The <code>fixptfn</code> is the regular EM update currently in <code>ashr</code>. Then <code>wsum</code> is one based on a multi-resolution method that bifurcates the data and merges rows that yield the same results within some specified tolerance. By comparison <code>wsum_naive</code> is a simple implementation that loops through the rows and sums the responsibilities… much slower than the fix point function which exploits vector-matrix multiplication to avoid the loop…</p>
@@ -205,34 +205,73 @@ res &lt;- ash(z,1,mixcompdist=&quot;normal&quot;,outputlevel=4)
 lik = res$fit_details$matrix_lik
 fitted_g = get_fitted_g(res)
 
-# set up the initial value of pi that we typically use in ash
-normalize=function(x){x/sum(x)}
-pi = rep(1/nsamp, ncomp(fitted_g))
-pi[1]=1
-pi = normalize(pi)</code></pre>
+# set up the initial value of pi as uniform
+pi = rep(1, ncomp(fitted_g))
+
+# This is closer to the usual initial value we use in ash
+# normalize=function(x){x/sum(x)}
+#pi = rep(1/nsamp, ncomp(fitted_g))
+#pi[1]=1
+#pi = normalize(pi)</code></pre>
 <pre class="r"><code>Rcpp::sourceCpp(&#39;fast_ash.cpp&#39;)
-tlik = t(lik)
+fixptfn(pi,lik,rep(1,17))</code></pre>
+<pre><code>$fixedpointvector
+ [1] 0.06212279 0.06222939 0.06233550 0.06254627 0.06296192 0.06376958
+ [7] 0.06528978 0.06795816 0.07196982 0.07621205 0.07742674 0.07240996
+[13] 0.06165978 0.04867429 0.03656324 0.02668879 0.01918194
+
+$objfn
+[1] 57641.2</code></pre>
+<pre class="r"><code>wsum_current(pi,lik,0,nsamp-1)</code></pre>
+<pre><code> [1] 6212.279 6222.939 6233.550 6254.627 6296.192 6376.958 6528.978
+ [8] 6795.816 7196.982 7621.205 7742.674 7240.996 6165.978 4867.429
+[15] 3656.324 2668.879 1918.194</code></pre>
+<pre class="r"><code>wsum_current_opt(pi,lik,0,nsamp-1)</code></pre>
+<pre><code> [1] 6212.279 6222.939 6233.550 6254.627 6296.192 6376.958 6528.978
+ [8] 6795.816 7196.982 7621.205 7742.674 7240.996 6165.978 4867.429
+[15] 3656.324 2668.879 1918.194</code></pre>
+<pre class="r"><code>wsum(pi,lik,0,nsamp-1,0,0,tol=1e-3)</code></pre>
+<pre><code> [1] 6211.553 6222.237 6232.873 6253.997 6295.650 6376.569 6528.829
+ [8] 6795.970 7197.414 7621.788 7743.275 7241.547 6166.447 4867.805
+[15] 3656.610 2669.089 1918.345</code></pre>
+<pre class="r"><code>wsum(pi,lik,0,nsamp-1,0,0,tol=1e-5)</code></pre>
+<pre><code> [1] 6212.278 6222.938 6233.549 6254.626 6296.192 6376.957 6528.978
+ [8] 6795.816 7196.982 7621.205 7742.675 7240.997 6165.978 4867.430
+[15] 3656.325 2668.879 1918.194</code></pre>
+<pre class="r"><code>wsum_current_opt(pi,lik,11,2000)</code></pre>
+<pre><code> [1] 198.20069 197.23456 196.28244 194.41882 190.84550 184.25274 172.88777
+ [8] 155.31315 131.92739 105.73009  80.72572  59.60723  43.13531  30.86898
+[15]  21.96125  15.57683  11.03153</code></pre>
+<pre class="r"><code>wsum(pi,lik,11,2000,0,0,tol=1e-3)</code></pre>
+<pre><code> [1] 198.19021 197.22451 196.27279 194.40997 190.83810 184.24784 172.88664
+ [8] 155.31655 131.93464 105.73915  80.73449  59.61458  43.14099  30.87319
+[15]  21.96429  15.57901  11.03308</code></pre>
+<pre class="r"><code>wsum(pi,lik,11,2000,0,0,tol=1e-5)</code></pre>
+<pre><code> [1] 198.19907 197.23302 196.28095 194.41746 190.84436 184.25198 172.88760
+ [8] 155.31367 131.92851 105.73149  80.72707  59.60836  43.13618  30.86963
+[15]  21.96172  15.57717  11.03177</code></pre>
+<pre class="r"><code>tlik = t(lik)
 system.time(fixptfn(pi,lik,rep(1,17)))</code></pre>
 <pre><code>   user  system elapsed 
-  0.015   0.002   0.018 </code></pre>
+  0.015   0.002   0.017 </code></pre>
 <pre class="r"><code>system.time(wsum_current(pi,lik,0,nsamp-1))</code></pre>
 <pre><code>   user  system elapsed 
-  0.014   0.002   0.016 </code></pre>
+  0.013   0.001   0.015 </code></pre>
 <pre class="r"><code>system.time(wsum_current_opt(pi,lik,0,nsamp-1))</code></pre>
 <pre><code>   user  system elapsed 
-  0.013   0.001   0.015 </code></pre>
+  0.014   0.002   0.017 </code></pre>
 <pre class="r"><code>system.time(wsum(pi,lik,0,nsamp-1,0,0,tol=1e-3))</code></pre>
 <pre><code>   user  system elapsed 
-  0.001   0.000   0.002 </code></pre>
+  0.001   0.000   0.000 </code></pre>
 <pre class="r"><code>system.time(wsum(pi,lik,0,nsamp-1,0,0,tol=1e-5))</code></pre>
 <pre><code>   user  system elapsed 
-  0.006   0.001   0.007 </code></pre>
+  0.038   0.008   0.048 </code></pre>
 <pre class="r"><code>system.time(wsum_naive_transposed(pi,tlik,1,nsamp-1))</code></pre>
 <pre><code>   user  system elapsed 
-  0.081   0.023   0.110 </code></pre>
+  0.071   0.017   0.106 </code></pre>
 <pre class="r"><code>system.time(wsum_naive(pi,lik,1,nsamp-1))</code></pre>
 <pre><code>   user  system elapsed 
-  0.067   0.016   0.084 </code></pre>
+  0.071   0.020   0.102 </code></pre>
 <p>Thoughts: maybe it would be worth storing the weights and responsibilities to be summed in a matrix, and using matrix multiplication?</p>
 </div>
 <div id="session-information" class="section level2">
@@ -252,7 +291,7 @@ other attached packages:
 
 loaded via a namespace (and not attached):
  [1] magrittr_1.5    assertthat_0.1  formatR_1.4     tools_3.3.1    
- [5] htmltools_0.3.5 yaml_2.1.13     tibble_1.2      Rcpp_0.12.7    
+ [5] htmltools_0.3.5 yaml_2.1.13     tibble_1.2      Rcpp_0.12.8    
  [9] stringi_1.1.2   rmarkdown_1.1   stringr_1.1.0   digest_0.6.10  
 [13] evaluate_0.10  </code></pre>
 </div>

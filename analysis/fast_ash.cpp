@@ -1,6 +1,50 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
+// [[Rcpp::export]]
+NumericMatrix my_mmult( NumericMatrix m , NumericVector v , int a, int b){
+  
+  if( ! (m.ncol() == v.size()) ) stop("Non-conformable arrays") ;
+  
+  NumericMatrix out(b-a+1 , m.ncol()) ;
+  
+  for (int j = 0; j < m.ncol(); j++) {
+    for (int i = 0; i < b-a+1; i++) {
+      out(i,j) = m(i+a,j) * v[j];
+    }
+  }
+  
+  return out ;
+}
+
+// [[Rcpp::export]]
+NumericMatrix mmult( NumericMatrix m , NumericVector v , bool byrow = true ){
+  if(byrow){
+    if( ! (m.ncol() == v.size()) ) stop("Non-conformable arrays") ;
+  }
+  if( ! byrow ){
+    if( ! (m.nrow() == v.size()) ) stop("Non-conformable arrays") ;
+  }
+  
+  NumericMatrix out(m) ;
+  
+  if( byrow ){
+    for (int j = 0; j < m.ncol(); j++) {
+      for (int i = 0; i < m.nrow(); i++) {
+        out(i,j) = m(i,j) * v[j];
+      }
+    }
+  }
+  if( ! byrow ){
+    for (int i = 0; i < m.nrow(); i++) {
+      for (int j = 0; j < m.ncol(); j++) {
+        out(i,j) = m(i,j) * v[i];
+      }
+    }
+  }
+  return out ;
+}
+
 // wsum_current uses essentially the code from the current fixedpointfunction
 // for summing up the responsibilities
 // [[Rcpp::export]]
@@ -25,16 +69,16 @@ NumericVector wsum_current(NumericVector pi,const NumericMatrix & matrix_lik,int
   return(wsum);
 }
   
-  // an attempt to optimize/streamline the current procedure
-  // [[Rcpp::export]]
-  NumericVector wsum_current_opt(NumericVector pi,const NumericMatrix & matrix_lik,int a,int b){
-    int n=matrix_lik.nrow(), k=matrix_lik.ncol();
+    
+// an attempt to optimize/streamline the current procedure
+// [[Rcpp::export]]
+NumericVector wsum_current_opt(NumericVector pi,const NumericMatrix & matrix_lik,int a,int b){
+    int k=matrix_lik.ncol();
     NumericVector wsum(k);
-    NumericMatrix classprob(b-a+1,k);
-    NumericVector classprob_rowsum(n);
-    //IntegerVector subset(prior);
+    NumericVector classprob_rowsum(b-a+1);
+    NumericMatrix classprob = my_mmult(matrix_lik, pi, a, b);
+    
     for (int i=0;i<k;i++){
-      classprob.column(i)=pi[i]*matrix_lik.column(i);
       classprob_rowsum=classprob_rowsum+classprob.column(i);
     }
     for (int i=0;i<k;i++){
