@@ -1,0 +1,74 @@
+---
+title: "First try at fastash via Rcpp"
+author: "Matthew Stephens"
+date: 2016-11-22
+output: 
+  html_document:
+    css: layout/floating-toc.css
+    toc: true
+---
+
+**Last updated:** `r Sys.Date()`
+
+**Code version:** `r system("git log -1 --format='%H'", intern = TRUE)`
+
+```{r chunk-options, include=FALSE}
+source("layout/chunk-options.R")
+```
+
+## Overview
+
+The file `fast_ash.cpp` contains some rcpp functions to compare.
+The `fixptfn` is the regular EM update currently in `ashr`.
+Then `wsum` is one based on a multi-resolution method that bifurcates the data
+and merges rows that yield the same results within some specified tolerance.
+By comparison `wsum_naive` is a simple implementation that loops through the rows
+and sums the responsibilities... much slower than the fix point function which exploits
+vector-matrix multiplication to avoid the loop...
+
+The comparison `wsum_naive` vs `wsum_naive_transpose` was just to check
+if it is faster to loop through rows vs columns. It seems to make no difference.
+(Howver, passing the matrix of likelihoods as a const & seems to make a small difference.)
+```{r, cache=TRUE}
+library(ashr)
+set.seed(100)
+nsamp=100000
+z = rnorm(nsamp,0,2)
+#now sort z so that they are in order
+z = z[order(abs(z))]
+
+res <- ash(z,1,mixcompdist="normal",outputlevel=4)
+lik = res$fit_details$matrix_lik
+fitted_g = get_fitted_g(res)
+
+# set up the initial value of pi that we typically use in ash
+normalize=function(x){x/sum(x)}
+pi = rep(1/nsamp, ncomp(fitted_g))
+pi[1]=1
+pi = normalize(pi)
+
+
+```
+
+```{r}
+Rcpp::sourceCpp('fast_ash.cpp')
+tlik = t(lik)
+system.time(fixptfn(pi,lik,rep(1,17)))
+system.time(wsum_current(pi,lik,0,nsamp-1))
+system.time(wsum_current_opt(pi,lik,0,nsamp-1))
+system.time(wsum(pi,lik,0,nsamp-1,0,0,tol=1e-3))
+system.time(wsum(pi,lik,0,nsamp-1,0,0,tol=1e-5))
+
+system.time(wsum_naive_transposed(pi,tlik,1,nsamp-1))
+system.time(wsum_naive(pi,lik,1,nsamp-1))
+
+```
+
+Thoughts: maybe it would be worth storing the weights and responsibilities to
+be summed in a matrix, and using matrix multiplication?
+
+## Session information
+
+```{r info, echo = FALSE}
+sessionInfo()
+```
