@@ -56,11 +56,21 @@ Rcpp::sourceCpp('fast_ash.cpp')
 wsum_direct(pi,lik,0,nsamp-1)
 wsum(pi,lik,0,nsamp-1,0,0,tol=1e-3)
 wsum(pi,lik,0,nsamp-1,0,0,tol=1e-5)
+wsum = rep(0,length(pi))
+lprobsum = c(0)
+add_to_wsum_direct(lprobsum, wsum,pi,lik,0,nsamp-1)
+wsum = rep(0,length(pi))
+lprobsum = c(0)
+add_to_wsum(lprobsum, wsum,pi,lik,0,nsamp-1,0,0,tol=1e-5)
+wsum
 
 wsum_direct(pi,lik,11,2000) # just check the functions are working ok for subsets that are not the whole data 
 wsum(pi,lik,11,2000,0,0,tol=1e-3)
 wsum(pi,lik,11,2000,0,0,tol=1e-5)
-
+wsum = rep(0,length(pi))
+lprobsum = 0
+add_to_wsum(lprobsum, wsum,pi,lik,11,2000,0,0,tol=1e-5)
+wsum
 ```
 Here we compare the compute times. If the tolerance is too tight then
 you get slower than simply directly summing. However, a weaker tolerance gives a substantial gain.
@@ -69,7 +79,9 @@ tlik = t(lik)
 system.time(wsum_direct(pi,lik,0,nsamp-1))
 system.time(wsum(pi,lik,0,nsamp-1,0,0,tol=1e-3))
 system.time(wsum(pi,lik,0,nsamp-1,0,0,tol=1e-5))
-
+wsum=rep(0,length(pi))
+lprobsum = 0
+system.time(add_to_wsum(lprobsum,wsum,pi,lik,0,nsamp-1,0,0,tol=1e-5))
 ```
 
 
