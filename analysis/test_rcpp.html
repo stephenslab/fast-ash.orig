@@ -188,8 +188,8 @@ $(document).ready(function () {
 </ul>
 </div>
 
-<p><strong>Last updated:</strong> 2016-11-24</p>
-<p><strong>Code version:</strong> 6d8d99e5790b82f3faf069127fc97c48628b2600</p>
+<p><strong>Last updated:</strong> 2016-11-28</p>
+<p><strong>Code version:</strong> 8408b826866288cff4fa241afb77c57f0aaf7f0f</p>
 <div id="overview" class="section level2">
 <h2>Overview</h2>
 <p>The file <code>fast_ash.cpp</code> contains some rcpp functions to compare.</p>
@@ -228,6 +228,16 @@ wsum_direct(pi,lik,0,nsamp-1)</code></pre>
 <pre><code> [1] 6212.278 6222.938 6233.549 6254.626 6296.192 6376.957 6528.978
  [8] 6795.816 7196.982 7621.205 7742.675 7240.997 6165.978 4867.430
 [15] 3656.325 2668.879 1918.194</code></pre>
+<pre class="r"><code>ws = rep(0,length(pi))
+lprobsum = c(0)
+add_to_wsum_direct(lprobsum, ws,pi,lik,0,nsamp-1)
+ws = rep(0,length(pi))
+lprobsum = c(0)
+add_to_wsum(lprobsum, ws,pi,lik,0,nsamp-1,0,0,tol=1e-5)
+ws</code></pre>
+<pre><code> [1] 6212.278 6222.938 6233.549 6254.626 6296.192 6376.957 6528.978
+ [8] 6795.816 7196.982 7621.205 7742.675 7240.997 6165.978 4867.430
+[15] 3656.325 2668.879 1918.194</code></pre>
 <pre class="r"><code>wsum_direct(pi,lik,11,2000) # just check the functions are working ok for subsets that are not the whole data </code></pre>
 <pre><code> [1] 198.20069 197.23456 196.28244 194.41882 190.84550 184.25274 172.88777
  [8] 155.31315 131.92739 105.73009  80.72572  59.60723  43.13531  30.86898
@@ -240,17 +250,29 @@ wsum_direct(pi,lik,0,nsamp-1)</code></pre>
 <pre><code> [1] 198.19907 197.23302 196.28095 194.41746 190.84436 184.25198 172.88760
  [8] 155.31367 131.92851 105.73149  80.72707  59.60836  43.13618  30.86963
 [15]  21.96172  15.57717  11.03177</code></pre>
+<pre class="r"><code>ws = rep(0,length(pi))
+lprobsum = 0
+add_to_wsum(lprobsum, ws,pi,lik,11,2000,0,0,tol=1e-5)
+ws</code></pre>
+<pre><code> [1] 198.19907 197.23302 196.28095 194.41746 190.84436 184.25198 172.88760
+ [8] 155.31367 131.92851 105.73149  80.72707  59.60836  43.13618  30.86963
+[15]  21.96172  15.57717  11.03177</code></pre>
 <p>Here we compare the compute times. If the tolerance is too tight then you get slower than simply directly summing. However, a weaker tolerance gives a substantial gain.</p>
 <pre class="r"><code>tlik = t(lik)
 system.time(wsum_direct(pi,lik,0,nsamp-1))</code></pre>
 <pre><code>   user  system elapsed 
-  0.013   0.002   0.016 </code></pre>
+  0.013   0.001   0.016 </code></pre>
 <pre class="r"><code>system.time(wsum(pi,lik,0,nsamp-1,0,0,tol=1e-3))</code></pre>
 <pre><code>   user  system elapsed 
-  0.000   0.000   0.001 </code></pre>
+  0.001   0.000   0.001 </code></pre>
 <pre class="r"><code>system.time(wsum(pi,lik,0,nsamp-1,0,0,tol=1e-5))</code></pre>
 <pre><code>   user  system elapsed 
-  0.065   0.011   0.079 </code></pre>
+  0.068   0.010   0.082 </code></pre>
+<pre class="r"><code>wsum=rep(0,length(pi))
+lprobsum = 0
+system.time(add_to_wsum(lprobsum,wsum,pi,lik,0,nsamp-1,0,0,tol=1e-5))</code></pre>
+<pre><code>   user  system elapsed 
+  0.047   0.004   0.053 </code></pre>
 </div>
 <div id="session-information" class="section level2">
 <h2>Session information</h2>
