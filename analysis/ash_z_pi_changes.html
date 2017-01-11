@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+
+
+<meta name="author" content="Matthew Stephens" />
+
+<meta name="date" content="2016-11-17" />
+
+<title>Looking at how pi changes with z</title>
+
+<script src="libs/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="libs/bootstrap-3.3.5/css/united.min.css" rel="stylesheet" />
+<script src="libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+
+<style type="text/css">
+
+/* padding for bootstrap navbar */
+body {
+  padding-top: 50px;
+  padding-bottom: 40px;
+}
+
+
+/* offset scroll position for anchor links (for fixed navbar)  */
+.section h2 {
+  padding-top: 55px;
+  margin-top: -55px;
+}
+.section h3 {
+  padding-top: 55px;
+  margin-top: -55px;
+}
+
+
+
+/* don't use link color in navbar */
+.dropdown-menu>li>a {
+  color: black;
+}
+
+/* some padding for disqus */
+#disqus_thread {
+  margin-top: 45px;
+}
+
+</style>
+
+<link rel="stylesheet" href="libs/font-awesome-4.1.0/css/font-awesome.min.css"/>
+
+<style type="text/css">code{white-space: pre;}</style>
+<link rel="stylesheet"
+      href="libs/highlight/textmate.css"
+      type="text/css" />
+<script src="libs/highlight/highlight.js"></script>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+<script type="text/javascript">
+if (window.hljs && document.readyState && document.readyState === "complete") {
+   window.setTimeout(function() {
+      hljs.initHighlighting();
+   }, 0);
+}
+</script>
+
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+<link rel="stylesheet" href="layout/floating-toc.css" type="text/css" />
+
+</head>
+
+<body>
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+  height: auto;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+</style>
+
+
+
+<div class="container-fluid main-container">
+
+<!-- tabsets -->
+<script src="libs/navigation-1.1/tabsets.js"></script>
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+</script>
+
+<!-- code folding -->
+
+
+
+
+
+
+<div class="navbar navbar-default navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">ashlar</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="about.html">About</a></li>
+        <li><a href="license.html">License</a></li>
+        <li><a href="https://github.com/stephenslab/fast-ash">GitHub</a></li>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div class="fluid-row" id="header">
+
+
+
+<h1 class="title toc-ignore">Looking at how pi changes with z</h1>
+<h4 class="author"><em>Matthew Stephens</em></h4>
+<h4 class="date"><em>2016-11-17</em></h4>
+
+</div>
+
+<div id="TOC">
+<ul>
+<li><a href="#outline">Outline</a></li>
+<li><a href="#session-information">Session information</a></li>
+</ul>
+</div>
+
+<p><strong>Last updated:</strong> 2016-11-22</p>
+<p><strong>Code version:</strong> 0b817002b9fdaa40593f15f828ea52618b815945</p>
+<div id="outline" class="section level2">
+<h2>Outline</h2>
+<p>The simplest application of ash is to z scores (so shat =1 for all observations).</p>
+<p>In this case we can exploit the fact that for similar z the “responsibilities” that are used in the EM algorithm will be similar to one another.</p>
+<p>Eg suppose we evaluate the responsibilities for two different observations z1 &lt; z2 and they are very similar. Then they will also be similar for other zs between z1 and z2. In this way we could end up only evaluating responsibilities for a very small fraction of all n z scores. Here we look at how similar the responsibilities are in a simple case.</p>
+<pre class="r"><code>library(ashr)
+set.seed(100)
+n=100000
+z = rnorm(n,0,2)
+#now sort z so that they are in order
+z = z[order(abs(z))]
+
+res &lt;- ash(z,1,mixcompdist=&quot;normal&quot;,outputlevel=4)
+lik = res$fit_details$matrix_lik
+fitted_g  = get_fitted_g(res)
+
+# set up the initial value of pi that we typically use in ash
+normalize=function(x){x/sum(x)}
+pi = rep(1/n, ncomp(fitted_g))
+pi[1]=1
+pi = normalize(pi)
+
+resp = apply(t(lik) * pi,2,normalize)</code></pre>
+<p>The following plots shows that the responsibilities for the first half of the points are very close to one another [and close to (1,0,…0)]</p>
+<pre class="r"><code>plot(resp[1,],ylim=c(0.9,1))</code></pre>
+<p><img src="figure/ash_z_pi_changes.Rmd/unnamed-chunk-2-1.png" width="672" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>plot(resp[1,],ylim=c(0.999,1))</code></pre>
+<p><img src="figure/ash_z_pi_changes.Rmd/unnamed-chunk-2-2.png" width="672" style="display: block; margin: auto;" /></p>
+<p>So how many are within 1e-5 of each responsibility?</p>
+<pre class="r"><code>n_within_tol = function(i,tol=1e-5){sum(apply(abs(resp-resp[,i]),2,max)&lt;tol)}
+n_within_tol(1)</code></pre>
+<pre><code>[1] 31280</code></pre>
+<pre class="r"><code>n_within_tol(25000)</code></pre>
+<pre><code>[1] 38054</code></pre>
+<pre class="r"><code>n_within_tol(50000)</code></pre>
+<pre><code>[1] 9558</code></pre>
+<pre class="r"><code>n_within_tol(75000)</code></pre>
+<pre><code>[1] 931</code></pre>
+<pre class="r"><code>n_within_tol(87500)</code></pre>
+<pre><code>[1] 52</code></pre>
+<pre class="r"><code>n_within_tol(93750)</code></pre>
+<pre><code>[1] 7</code></pre>
+</div>
+<div id="session-information" class="section level2">
+<h2>Session information</h2>
+<pre><code>R version 3.3.1 (2016-06-21)
+Platform: x86_64-apple-darwin13.4.0 (64-bit)
+Running under: OS X 10.11.5 (El Capitan)
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] ashr_2.0.4 knitr_1.14
+
+loaded via a namespace (and not attached):
+ [1] Rcpp_0.12.7       magrittr_1.5      REBayes_0.73     
+ [4] MASS_7.3-45       doParallel_1.0.10 pscl_1.4.9       
+ [7] SQUAREM_2016.8-2  lattice_0.20-34   foreach_1.4.3    
+[10] stringr_1.1.0     tools_3.3.1       parallel_3.3.1   
+[13] grid_3.3.1        htmltools_0.3.5   iterators_1.0.8  
+[16] yaml_2.1.13       assertthat_0.1    digest_0.6.10    
+[19] tibble_1.2        Matrix_1.2-7.1    formatR_1.4      
+[22] codetools_0.2-15  evaluate_0.10     rmarkdown_1.1    
+[25] stringi_1.1.2     Rmosek_7.1.2      truncnorm_1.0-7  </code></pre>
+</div>
+
+
+<!-- some extra javascript for older browsers -->
+<script type="text/javascript" src="libs/polyfill.js"></script>
+
+<script>
+
+// manage active state of menu based on current page
+$(document).ready(function () {
+
+    // active menu
+    href = window.location.pathname
+    href = href.substr(href.lastIndexOf('/') + 1)
+    $('a[href="' + href + '"]').parent().addClass('active');
+
+    // manage active menu header
+    if (href.startsWith('authoring_'))
+      $('a[href="' + 'authoring' + '"]').parent().addClass('active');
+    else if (href.endsWith('_format.html'))
+      $('a[href="' + 'formats' + '"]').parent().addClass('active');
+    else if (href.startsWith('developer_'))
+      $('a[href="' + 'developer' + '"]').parent().addClass('active');
+
+});
+
+</script>
+
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+$(document).ready(function () {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+});
+
+
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

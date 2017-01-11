@@ -337,7 +337,7 @@ List squarem1(NumericVector par,NumericMatrix matrix_lik,NumericVector prior,Lis
         if(!std::isnan(lnewcpp[0])){lold=lnew;}
         loldcpp=lold;
         if(trace){Rcout<<"Objective fn: "<<lnewcpp[0]<<"  Extrapolation: "<<extrap<<"  Steplength: "<<alpha<<std::endl;}
-        
+
         iter++;
     }
     

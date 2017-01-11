@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+
+
+<meta name="author" content="Matthew Stephens" />
+
+<meta name="date" content="2016-12-03" />
+
+<title>General approach to speeding up ash</title>
+
+<script src="libs/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="libs/bootstrap-3.3.5/css/united.min.css" rel="stylesheet" />
+<script src="libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+
+<style type="text/css">
+
+/* padding for bootstrap navbar */
+body {
+  padding-top: 50px;
+  padding-bottom: 40px;
+}
+
+
+/* offset scroll position for anchor links (for fixed navbar)  */
+.section h2 {
+  padding-top: 55px;
+  margin-top: -55px;
+}
+.section h3 {
+  padding-top: 55px;
+  margin-top: -55px;
+}
+
+
+
+/* don't use link color in navbar */
+.dropdown-menu>li>a {
+  color: black;
+}
+
+/* some padding for disqus */
+#disqus_thread {
+  margin-top: 45px;
+}
+
+</style>
+
+<link rel="stylesheet" href="libs/font-awesome-4.1.0/css/font-awesome.min.css"/>
+
+<style type="text/css">code{white-space: pre;}</style>
+<link rel="stylesheet"
+      href="libs/highlight/textmate.css"
+      type="text/css" />
+<script src="libs/highlight/highlight.js"></script>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+<script type="text/javascript">
+if (window.hljs && document.readyState && document.readyState === "complete") {
+   window.setTimeout(function() {
+      hljs.initHighlighting();
+   }, 0);
+}
+</script>
+
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+<link rel="stylesheet" href="layout/floating-toc.css" type="text/css" />
+
+</head>
+
+<body>
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+  height: auto;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+</style>
+
+
+
+<div class="container-fluid main-container">
+
+<!-- tabsets -->
+<script src="libs/navigation-1.1/tabsets.js"></script>
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+</script>
+
+<!-- code folding -->
+
+
+
+
+
+
+<div class="navbar navbar-default navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">ashlar</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="about.html">About</a></li>
+        <li><a href="license.html">License</a></li>
+        <li><a href="https://github.com/stephenslab/fast-ash">GitHub</a></li>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div class="fluid-row" id="header">
+
+
+
+<h1 class="title toc-ignore">General approach to speeding up ash</h1>
+<h4 class="author"><em>Matthew Stephens</em></h4>
+<h4 class="date"><em>2016-12-03</em></h4>
+
+</div>
+
+<div id="TOC">
+<ul>
+<li><a href="#outline">Outline</a></li>
+<li><a href="#session-information">Session information</a></li>
+</ul>
+</div>
+
+<p><strong>Last updated:</strong> 2016-12-03</p>
+<p><strong>Code version:</strong> d0149f551bdcb2451ed276e59659d33f4f9286fb</p>
+<div id="outline" class="section level2">
+<h2>Outline</h2>
+<p>The purpose here is to investigate a “general” approach to speeding up ash. Maybe one that will be more general with less code.</p>
+<p>The strategy I have in mind is: - sort the observations somehow (eg z score) - take a stratified sample of, say, 100 z scores (including the largest one) - fit ash using K big to these 100. - prune out the pi that are essentially 0 (reduces K) - use the bisection multiresolution tree strategy, with this initial estimated pi, to summarize the n observations by a much smaller number (with weights). That is, we are effectively doing stratified sampling. - re-run ash on this stratified sample.</p>
+<pre class="r"><code>library(&quot;ashr&quot;)
+load(&quot;../output/ash.bigz.RData&quot;)
+subset = seq(1,n,length=100)
+zsub = z[subset]
+zsub.ash = ash.workhorse(z[subset],1,mixcompdist = &quot;normal&quot;, gridmult = 1.1)
+g = get_fitted_g(zsub.ash)
+
+calc_loglik(g,res$data)</code></pre>
+<pre><code>[1] -215681.6</code></pre>
+<pre class="r"><code>prune_g = function(g, thresh = 1e-5){
+  cl = class(g)
+  keep = g$pi &gt; thresh
+  g = lapply(g, function(x){x[keep]})
+  g$pi = g$pi/sum(g$pi)
+  class(g) = cl
+  return(g)
+}
+g.small = prune_g(g)
+res2 = ash.workhorse(z,1,mixcompdist = &quot;normal&quot;,g = g.small)
+res3 = ash.workhorse(z,1,mixcompdist = &quot;normal&quot;,g = g)
+res2$loglik</code></pre>
+<pre><code>[1] -212533.1</code></pre>
+<pre class="r"><code>res3$loglik</code></pre>
+<pre><code>[1] -211126.7</code></pre>
+<pre class="r"><code>res$loglik</code></pre>
+<pre><code>[1] -211177.6</code></pre>
+<pre class="r"><code>system.time(ash.workhorse(z,1,mixcompdist = &quot;normal&quot;,g = g.small))</code></pre>
+<pre><code>   user  system elapsed 
+  7.766   0.903  10.078 </code></pre>
+<pre class="r"><code>system.time(ash.workhorse(z,1,mixcompdist = &quot;normal&quot;,g = g.small,optmethod=&quot;cxxMixSquarem&quot;,control=list(trace=FALSE)))</code></pre>
+<pre><code>   user  system elapsed 
+  4.906   0.645   6.721 </code></pre>
+</div>
+<div id="session-information" class="section level2">
+<h2>Session information</h2>
+<pre><code>R version 3.3.1 (2016-06-21)
+Platform: x86_64-apple-darwin13.4.0 (64-bit)
+Running under: OS X 10.11.5 (El Capitan)
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] ashr_2.0.4 knitr_1.14
+
+loaded via a namespace (and not attached):
+ [1] Rcpp_0.12.8       magrittr_1.5      REBayes_0.73     
+ [4] MASS_7.3-45       doParallel_1.0.10 pscl_1.4.9       
+ [7] SQUAREM_2016.8-2  lattice_0.20-34   foreach_1.4.3    
+[10] stringr_1.1.0     tools_3.3.1       parallel_3.3.1   
+[13] grid_3.3.1        htmltools_0.3.5   iterators_1.0.8  
+[16] yaml_2.1.13       assertthat_0.1    digest_0.6.10    
+[19] tibble_1.2        Matrix_1.2-7.1    formatR_1.4      
+[22] codetools_0.2-15  evaluate_0.10     rmarkdown_1.1    
+[25] stringi_1.1.2     Rmosek_7.1.2      truncnorm_1.0-7  </code></pre>
+</div>
+
+
+<!-- some extra javascript for older browsers -->
+<script type="text/javascript" src="libs/polyfill.js"></script>
+
+<script>
+
+// manage active state of menu based on current page
+$(document).ready(function () {
+
+    // active menu
+    href = window.location.pathname
+    href = href.substr(href.lastIndexOf('/') + 1)
+    $('a[href="' + href + '"]').parent().addClass('active');
+
+    // manage active menu header
+    if (href.startsWith('authoring_'))
+      $('a[href="' + 'authoring' + '"]').parent().addClass('active');
+    else if (href.endsWith('_format.html'))
+      $('a[href="' + 'formats' + '"]').parent().addClass('active');
+    else if (href.startsWith('developer_'))
+      $('a[href="' + 'developer' + '"]').parent().addClass('active');
+
+});
+
+</script>
+
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+$(document).ready(function () {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+});
+
+
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
